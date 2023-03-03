@@ -13,7 +13,6 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
-import java.io.IOException;
 import java.util.ArrayList;
 
 import uk.me.berndporr.iirj.Butterworth;
@@ -22,7 +21,7 @@ import uk.me.berndporr.iirj.Butterworth;
 public class MainActivity extends AppCompatActivity implements SensorEventListener {
 
     private TextView stepsTv;
-    private Button startBtn, stopBtn;
+    private Button startBtn, stopBtn, resetBtn;
 
     private SensorManager sensorManager;
     private Sensor sensor;
@@ -31,13 +30,16 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private double[] acceleration = new double[3];
     private double[] linear_acceleration = new double[3];
     private double[] gravity = new double[3];
+    private ArrayList<Float> data = new ArrayList<>();
 
     private int stepsCount = 0;
 
     private double threshold = 0.4;
+    float magnitude = 0f;
 
     Butterworth butterworth = new Butterworth();
-    double[] filtered_linear_acceleration = new double[linear_acceleration.length];
+    //double[] filtered_linear_acceleration = new double[linear_acceleration.length];
+    ArrayList<Double> filtered_linear_acceleration = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,6 +50,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         stepsTv = findViewById(R.id.stepsTv);
         startBtn = findViewById(R.id.startBtn);
         stopBtn = findViewById(R.id.stopBtn);
+        resetBtn = findViewById(R.id.resetBtn);
 
         sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         sensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
@@ -66,18 +69,31 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             }
         });
 
-        // usually effective frequency of walking is 0-2Hz
+        resetBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                reset();
+            }
+        });
+
+        //data = new ArrayList<>();
+
+        //usually effective frequency of walking is 0-2Hz
         //get all values between that range
         bandPassFilter(linear_acceleration,0.1f,2.0f,50,5);
 
     }
 
-    public void start() {
+    private void start() {
         sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_NORMAL);
     }
 
-    public void stop() {
+    private void stop() {
         sensorManager.unregisterListener(this);
+    }
+
+    private void reset(){
+        data.clear();
     }
 
     @Override
@@ -99,10 +115,19 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         linear_acceleration[1] = acceleration[1] - gravity[1];
         linear_acceleration[2] = acceleration[2] - gravity[2];
 
+        //magnitude array
+        magnitude = (float) Math.sqrt(Math.pow(acceleration[0],2)+ Math.pow(acceleration[1],2) + Math.pow(acceleration[2],2));
+        data.add(magnitude);
         // remove noises
-        for(int i =0; i<linear_acceleration.length; i++){
+
+        /*for(int i =0; i<linear_acceleration.length; i++){
             filtered_linear_acceleration[i] = butterworth.filter(linear_acceleration[i]);
+        }*/
+
+        for(int i = 0; i<data.size()-1; i++){
+            filtered_linear_acceleration.add(butterworth.filter(data.get(i))) ;
         }
+
         // normalize data from 0 to 1
         normalize(filtered_linear_acceleration);
 
@@ -111,38 +136,43 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         stepsTv.setText(String.valueOf(stepsCount));
     }
 
-    private double normalize(@NonNull double[] filtered) {
-        double maximum = Math.max(Math.abs(filtered[0]), Math.max(Math.abs(filtered[1]), Math.abs(filtered[2])));
-        double minimum = Math.min(Math.abs(filtered[0]), Math.max(Math.abs(filtered[1]), Math.abs(filtered[2])));
+    private double normalize(@NonNull ArrayList<Double> filtered) {
+        double maximum = Math.max(Math.abs(filtered.get(0)), Math.max(Math.abs(filtered.get(1)), Math.abs(filtered.get(2))));
+        double minimum = Math.min(Math.abs(filtered.get(0)), Math.max(Math.abs(filtered.get(1)), Math.abs(filtered.get(2))));
 
         double ans = 0d;
-        for (int i = 0; i < filtered.length; i++) {
-            ans = (filtered[i] - minimum) / (maximum - minimum);
+        for (int i = 1; i < filtered.size()-1; i++) {
+            ans = (filtered.get(i) - minimum) / (maximum - minimum);
         }
         return ans;
     }
 
     private int peakDetection(@NonNull double [] linear_acceleration, double threshold) {
 
-        ArrayList<Double> peaksDetected = new ArrayList<>();
+        ArrayList<Integer> peaksDetected = new ArrayList<>();
 
-        // check i-1, i, i+1
+        //check i-1, i, i+1
         //if i is greater than both then it is a peak
         //check if  value at that index is > 0.4
         //add index i into a list and value at i in another list
 
         for(int i =1; i< linear_acceleration.length -1; i++){
             if (linear_acceleration[i] > linear_acceleration[i-1] && linear_acceleration[i] > linear_acceleration[i+1] && linear_acceleration[i] > threshold) {
-                peaksDetected.add(linear_acceleration[i]);
-                // peak detected - increase the number of steps by 1
-                stepsCount ++ ;
+                peaksDetected.add(i);
             }
 
         }
+        //distance threshold = 25
+        for(int i = 1; i<peaksDetected.size()-1; i++){
+            if(peaksDetected.get(i+1) - peaksDetected.lastIndexOf(i) > 25){
+                stepsCount++;   //peak detected - increase the number of steps by 1
+            }
+        }
+
         // get values at peak
         double[] peaksValue = new double[peaksDetected.size()];
         for(int i =0; i< peaksDetected.size(); i++){
-            peaksValue[i] = peaksDetected.get(i);
+            peaksValue[i] = (i);
         }
 
         return stepsCount;

@@ -35,4 +35,13 @@
         android:text="Stop"
         android:layout_centerHorizontal="true"/>
 
+    <Button
+        android:id="@+id/resetBtn"
+        android:layout_below="@id/stopBtn"
+        android:layout_width="220dp"
+        android:layout_height="wrap_content"
+        android:layout_margin="15dp"
+        android:text="Reset"
+        android:layout_centerHorizontal="true"/>
+
 </RelativeLayout >
