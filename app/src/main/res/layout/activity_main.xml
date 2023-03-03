@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
+
+    <TextView
+        android:id="@+id/stepsTv"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="0"
+        android:layout_centerInParent="true"
+        android:layout_centerHorizontal="true"
+        android:textStyle="bold"
+        android:layout_margin="15dp"
+        android:textSize="45sp" />
+
+    <Button
+        android:id="@+id/startBtn"
+        android:layout_width="220dp"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:layout_below="@id/stepsTv"
+        android:layout_margin="15dp"
+        android:text="Start"/>
+
+    <Button
+        android:id="@+id/stopBtn"
+        android:layout_below="@id/startBtn"
+        android:layout_width="220dp"
+        android:layout_height="wrap_content"
+        android:layout_margin="15dp"
+        android:text="Stop"
+        android:layout_centerHorizontal="true"/>
+
+</RelativeLayout >
