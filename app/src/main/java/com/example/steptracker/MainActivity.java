@@ -37,6 +37,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private double threshold = 0.4;
     float magnitude = 0f;
 
+    boolean isActive = false;
+
     Butterworth butterworth = new Butterworth();
     //double[] filtered_linear_acceleration = new double[linear_acceleration.length];
     ArrayList<Double> filtered_linear_acceleration = new ArrayList<>();
@@ -76,8 +78,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             }
         });
 
-        //data = new ArrayList<>();
-
         //usually effective frequency of walking is 0-2Hz
         //get all values between that range
         bandPassFilter(linear_acceleration,0.1f,2.0f,50,5);
@@ -85,54 +85,67 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     private void start() {
+        isActive = true;
         sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_NORMAL);
     }
 
     private void stop() {
+        isActive = false;
         sensorManager.unregisterListener(this);
     }
 
     private void reset(){
+        stepsCount = 0;
+        stepsTv.setText(String.valueOf(stepsCount));
         data.clear();
     }
 
     @Override
     public void onSensorChanged(SensorEvent sensorEvent) {
         // accelerometer values
-        acceleration[0] = sensorEvent.values[0];
-        acceleration[1] = sensorEvent.values[1];
-        acceleration[2] = sensorEvent.values[2];
+        if(isActive){
+            acceleration[0] = sensorEvent.values[0];
+            acceleration[1] = sensorEvent.values[1];
+            acceleration[2] = sensorEvent.values[2];
 
-        final float alpha = 0.8f;
+            final float alpha = 0.8f;
 
-        //acc due to gravity
-        gravity[0] = alpha * gravity[0] + (1 - alpha) * sensorEvent.values[0];
-        gravity[1] = alpha * gravity[1] + (1 - alpha) * sensorEvent.values[1];
-        gravity[2] = alpha * gravity[2] + (1 - alpha) * sensorEvent.values[2];
+            //acc due to gravity
+            gravity[0] = alpha * gravity[0] + (1 - alpha) * sensorEvent.values[0];
+            gravity[1] = alpha * gravity[1] + (1 - alpha) * sensorEvent.values[1];
+            gravity[2] = alpha * gravity[2] + (1 - alpha) * sensorEvent.values[2];
 
-        // linear acc = acc - gravity
-        linear_acceleration[0] = acceleration[0] - gravity[0];
-        linear_acceleration[1] = acceleration[1] - gravity[1];
-        linear_acceleration[2] = acceleration[2] - gravity[2];
+            // linear acc = acc - gravity
+            linear_acceleration[0] = acceleration[0] - gravity[0];
+            linear_acceleration[1] = acceleration[1] - gravity[1];
+            linear_acceleration[2] = acceleration[2] - gravity[2];
 
-        //magnitude array
-        magnitude = (float) Math.sqrt(Math.pow(acceleration[0],2)+ Math.pow(acceleration[1],2) + Math.pow(acceleration[2],2));
-        data.add(magnitude);
-        // remove noises
+            //magnitude array
+            magnitude = (float) Math.sqrt(Math.pow(acceleration[0], 2) + Math.pow(acceleration[1], 2) + Math.pow(acceleration[2], 2));
+            data.add(magnitude);
+
+        }
+
+        else{
+            stepCounter();
+            data.clear();
+        }
 
         /*for(int i =0; i<linear_acceleration.length; i++){
             filtered_linear_acceleration[i] = butterworth.filter(linear_acceleration[i]);
         }*/
 
-        for(int i = 0; i<data.size()-1; i++){
-            filtered_linear_acceleration.add(butterworth.filter(data.get(i))) ;
+    }
+
+    public void stepCounter(){
+        // remove noises
+        for (int i = 0; i < data.size()-1; i++) {
+            filtered_linear_acceleration.add(butterworth.filter(data.get(i)));
         }
 
         // normalize data from 0 to 1
         normalize(filtered_linear_acceleration);
-
-        peakDetection(linear_acceleration, threshold );
-
+        peakDetection(filtered_linear_acceleration, threshold);
         stepsTv.setText(String.valueOf(stepsCount));
     }
 
@@ -147,7 +160,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         return ans;
     }
 
-    private int peakDetection(@NonNull double [] linear_acceleration, double threshold) {
+    private int peakDetection(@NonNull ArrayList<Double> linear_acceleration, double threshold) {
 
         ArrayList<Integer> peaksDetected = new ArrayList<>();
 
@@ -156,8 +169,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         //check if  value at that index is > 0.4
         //add index i into a list and value at i in another list
 
-        for(int i =1; i< linear_acceleration.length -1; i++){
-            if (linear_acceleration[i] > linear_acceleration[i-1] && linear_acceleration[i] > linear_acceleration[i+1] && linear_acceleration[i] > threshold) {
+        for(int i =1; i< linear_acceleration.size() -1; i++){
+            if (linear_acceleration.get(i) > linear_acceleration.get(i - 1) && linear_acceleration.get(i) > linear_acceleration.get(i + 1)
+                    && linear_acceleration.get(i) > threshold) {
                 peaksDetected.add(i);
             }
 
