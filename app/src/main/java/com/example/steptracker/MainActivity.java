@@ -14,9 +14,7 @@ import android.widget.Button;
 import android.widget.TextView;
 
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Collections;
-import java.util.Date;
 
 import uk.me.berndporr.iirj.Butterworth;
 
@@ -62,7 +60,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             @Override
             public void onClick(View v) {
                 start();
-
             }
         });
         stopBtn.setOnClickListener(new View.OnClickListener() {
@@ -80,7 +77,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         });
 
     }
-
     private void start() {
         isActive = true;
         sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_UI);
@@ -93,7 +89,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     private void reset(){
-
         stepsCount = 0;
         stepsTv.setText(String.valueOf(stepsCount));
         data.clear();
@@ -101,8 +96,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     @Override
     public void onSensorChanged(SensorEvent sensorEvent) {
-        // accelerometer values
         if(isActive){
+            // accelerometer values
             acceleration[0] = sensorEvent.values[0];
             acceleration[1] = sensorEvent.values[1];
             acceleration[2] = sensorEvent.values[2];
@@ -184,7 +179,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         //check i-1, i, i+1
         //if i is greater than both then it is a peak
-        //check if  value at that index is > 0.4
+        //check if  value at that index is > threshold
         //add index i into a list and value at i in another list
 
         for(int i =1; i< linear_acceleration.size() -1; i++){
@@ -198,7 +193,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         //distance threshold
         for(int i = 0; i<peaksDetected.size()-1; i++){
             if((peaksDetected.get(i+1) - peaksDetected.get(i)) > (int)(fs/4)-1){
-                stepsCount++;   //peak detected - increase the number of steps by 1
+                stepsCount++;   //peak detected -> increase the number of steps by 1
             }
         }
         System.out.println(stepsCount);
@@ -212,7 +207,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     double[] bandPassFilter(@NonNull double[] linear_acceleration, float low_cut, float high_cut, int fs, int order){
-        // sampling freq = 16Hz
+        // sampling freq = no. of samples/signal duration
         order = 5;
         for (int i = 0; i < linear_acceleration.length; i++) {
             double centreFreq = (high_cut + low_cut) / 2.0;
