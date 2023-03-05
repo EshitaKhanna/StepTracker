@@ -14,6 +14,9 @@ import android.widget.Button;
 import android.widget.TextView;
 
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Collections;
+import java.util.Date;
 
 import uk.me.berndporr.iirj.Butterworth;
 
@@ -34,14 +37,12 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     private int stepsCount = 0;
 
-    private double threshold = 0.4;
+    private double threshold = 0.35;
     float magnitude = 0f;
 
     boolean isActive = false;
-
-    Butterworth butterworth = new Butterworth();
-    //double[] filtered_linear_acceleration = new double[linear_acceleration.length];
-    ArrayList<Double> filtered_linear_acceleration = new ArrayList<>();
+    long time_start;
+    long time_end;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,23 +79,21 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             }
         });
 
-        //usually effective frequency of walking is 0-2Hz
-        //get all values between that range
-        bandPassFilter(linear_acceleration,0.1f,2.0f,50,5);
-
     }
 
     private void start() {
         isActive = true;
-        sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_NORMAL);
+        sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_UI);
+        time_start = System.currentTimeMillis();
     }
 
     private void stop() {
         isActive = false;
-        sensorManager.unregisterListener(this);
+        time_end = System.currentTimeMillis();
     }
 
     private void reset(){
+
         stepsCount = 0;
         stepsTv.setText(String.valueOf(stepsCount));
         data.clear();
@@ -120,47 +119,66 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             linear_acceleration[1] = acceleration[1] - gravity[1];
             linear_acceleration[2] = acceleration[2] - gravity[2];
 
-            //magnitude array
+            //magnitude array: invariant to phone orientation
             magnitude = (float) Math.sqrt(Math.pow(acceleration[0], 2) + Math.pow(acceleration[1], 2) + Math.pow(acceleration[2], 2));
             data.add(magnitude);
-
         }
 
-        else{
-            stepCounter();
+        else {
+            System.out.println("data to send");
+            System.out.println(data);
+
+            long time_diff = (time_end-time_start)/1000;
+            stepCounter(data, time_diff);
+
             data.clear();
+            sensorManager.unregisterListener(this);
         }
 
-        /*for(int i =0; i<linear_acceleration.length; i++){
-            filtered_linear_acceleration[i] = butterworth.filter(linear_acceleration[i]);
-        }*/
 
     }
 
-    public void stepCounter(){
+    public void stepCounter(ArrayList<Float> data, long time_diff){
+        //usually effective frequency of walking is 0-2Hz
+        //get all values between that range
         // remove noises
-        for (int i = 0; i < data.size()-1; i++) {
-            filtered_linear_acceleration.add(butterworth.filter(data.get(i)));
+        double[] data_arr = data.stream().mapToDouble(Float::doubleValue).toArray(); //via method reference
+        int fs = (int) (data.size() / time_diff);
+        System.out.println("sampling rate");
+        System.out.println(fs);
+
+        double[] filtered = bandPassFilter(data_arr,0.1f,2.0f,fs,5);
+
+        ArrayList<Double> filtered_linear_acceleration = new ArrayList<>();
+        for (int i = 1; i < filtered.length-1; i++) {
+            filtered_linear_acceleration.add(filtered[i]);
         }
+        System.out.println("filtered data");
+        System.out.println(filtered_linear_acceleration);
 
         // normalize data from 0 to 1
-        normalize(filtered_linear_acceleration);
-        peakDetection(filtered_linear_acceleration, threshold);
+        ArrayList<Double> normalized_arr = normalize(filtered_linear_acceleration);
+
+        System.out.println("norm data");
+        System.out.println(normalized_arr);
+
+        int stepsCount = peakDetection(normalized_arr, threshold,fs);
         stepsTv.setText(String.valueOf(stepsCount));
+        System.out.println("steps: " + stepsCount);
     }
 
-    private double normalize(@NonNull ArrayList<Double> filtered) {
-        double maximum = Math.max(Math.abs(filtered.get(0)), Math.max(Math.abs(filtered.get(1)), Math.abs(filtered.get(2))));
-        double minimum = Math.min(Math.abs(filtered.get(0)), Math.max(Math.abs(filtered.get(1)), Math.abs(filtered.get(2))));
+    private ArrayList<Double> normalize(@NonNull ArrayList<Double> filtered) {
+        double maximum = Collections.max(filtered);
+        double minimum = Collections.min(filtered);
 
-        double ans = 0d;
+        ArrayList<Double> ans = new ArrayList<>();
         for (int i = 1; i < filtered.size()-1; i++) {
-            ans = (filtered.get(i) - minimum) / (maximum - minimum);
+            ans.add((filtered.get(i) - minimum) / (maximum - minimum));
         }
         return ans;
     }
 
-    private int peakDetection(@NonNull ArrayList<Double> linear_acceleration, double threshold) {
+    private int peakDetection(@NonNull ArrayList<Double> linear_acceleration, double threshold, int fs) {
 
         ArrayList<Integer> peaksDetected = new ArrayList<>();
 
@@ -176,25 +194,25 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             }
 
         }
-        //distance threshold = 25
-        for(int i = 1; i<peaksDetected.size()-1; i++){
-            if(peaksDetected.get(i+1) - peaksDetected.lastIndexOf(i) > 25){
+
+        //distance threshold
+        for(int i = 0; i<peaksDetected.size()-1; i++){
+            if((peaksDetected.get(i+1) - peaksDetected.get(i)) > (int)(fs/4)-1){
                 stepsCount++;   //peak detected - increase the number of steps by 1
             }
         }
+        System.out.println(stepsCount);
 
         // get values at peak
         double[] peaksValue = new double[peaksDetected.size()];
         for(int i =0; i< peaksDetected.size(); i++){
             peaksValue[i] = (i);
         }
-
         return stepsCount;
     }
 
     double[] bandPassFilter(@NonNull double[] linear_acceleration, float low_cut, float high_cut, int fs, int order){
-        // sampling freq = 50Hz
-        fs = 50;
+        // sampling freq = 16Hz
         order = 5;
         for (int i = 0; i < linear_acceleration.length; i++) {
             double centreFreq = (high_cut + low_cut) / 2.0;
