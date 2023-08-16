@@ -6,5 +6,5 @@ Step Tracker App Video Demo: https://drive.google.com/file/d/17Gd66WbGvEO3h9D5Es
 - Data: data for offline analysis
 - StepTracker: Android App
 - Counting_Steps.ipynb: Python code for analysis
-- Step Count Report.pdf: Report explaining all the concepts
+
 
